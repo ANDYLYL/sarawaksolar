@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { CheckCircle, Sun, Zap, Shield, Phone, MessageCircle, ArrowRight, Menu, X, Clock, Newspaper, Send, User, Bot } from 'lucide-react';
+import { CheckCircle, Sun, Zap, Shield, Phone, MessageCircle, Mail, ArrowRight, Menu, X, Clock, Newspaper, Send, User, Bot } from 'lucide-react';
 import ChatBot from './components/ChatBot';
 
 export default function App() {
@@ -580,13 +580,33 @@ export default function App() {
               <p className="text-emerald-100">Find out exactly how much subsidy you qualify for. No obligations.</p>
             </div>
             
-            <form className="p-8 md:p-12 space-y-6" onSubmit={(e) => { e.preventDefault(); alert('Form submitted! We will contact you shortly.'); }}>
+            <form 
+              className="p-8 md:p-12 space-y-6" 
+              onSubmit={(e) => { 
+                e.preventDefault(); 
+                const formData = new FormData(e.currentTarget);
+                const name = formData.get('name');
+                const phone = formData.get('phone');
+                const bill = formData.get('bill');
+                const method = formData.get('contactMethod');
+
+                if (method === 'whatsapp') {
+                  const message = `Hello Sarawak Solar! I would like to check my eligibility for the 2026 NEM subsidy.%0A%0A*Name:* ${name}%0A*Phone:* ${phone}%0A*Monthly Bill:* RM${bill}`;
+                  window.open(`https://wa.me/60102841069?text=${message}`, '_blank');
+                } else {
+                  const subject = encodeURIComponent(`NEM Eligibility Check - ${name}`);
+                  const body = encodeURIComponent(`Hello,\n\nI would like to check my eligibility for the 2026 NEM subsidy.\n\nName: ${name}\nPhone: ${phone}\nMonthly Bill: RM${bill}`);
+                  window.location.href = `mailto:andy.low@neutoenergy.com?subject=${subject}&body=${body}`;
+                }
+              }}
+            >
               <div className="grid md:grid-cols-2 gap-6">
                 <div className="space-y-2">
                   <label htmlFor="name" className="block text-sm font-medium text-slate-700">Full Name</label>
                   <input 
                     type="text" 
                     id="name" 
+                    name="name"
                     required
                     className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition-all bg-slate-50 focus:bg-white"
                     placeholder="John Doe"
@@ -597,6 +617,7 @@ export default function App() {
                   <input 
                     type="tel" 
                     id="phone" 
+                    name="phone"
                     required
                     className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition-all bg-slate-50 focus:bg-white"
                     placeholder="+60 12-345 6789"
@@ -611,10 +632,31 @@ export default function App() {
                   <input 
                     type="number" 
                     id="bill" 
+                    name="bill"
                     required
                     className="w-full pl-12 pr-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition-all bg-slate-50 focus:bg-white"
                     placeholder="350"
                   />
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                <label className="block text-sm font-medium text-slate-700">Preferred Contact Method</label>
+                <div className="grid grid-cols-2 gap-4">
+                  <label className="relative flex items-center justify-center p-4 rounded-xl border border-slate-200 cursor-pointer hover:bg-slate-50 transition-all has-[:checked]:border-emerald-500 has-[:checked]:bg-emerald-50 group">
+                    <input type="radio" name="contactMethod" value="whatsapp" defaultChecked className="sr-only" />
+                    <div className="flex items-center gap-2">
+                      <MessageCircle className="h-5 w-5 text-[#25D366]" />
+                      <span className="font-semibold text-slate-700 group-has-[:checked]:text-emerald-900">WhatsApp</span>
+                    </div>
+                  </label>
+                  <label className="relative flex items-center justify-center p-4 rounded-xl border border-slate-200 cursor-pointer hover:bg-slate-50 transition-all has-[:checked]:border-emerald-500 has-[:checked]:bg-emerald-50 group">
+                    <input type="radio" name="contactMethod" value="email" className="sr-only" />
+                    <div className="flex items-center gap-2">
+                      <Mail className="h-5 w-5 text-emerald-600" />
+                      <span className="font-semibold text-slate-700 group-has-[:checked]:text-emerald-900">Email</span>
+                    </div>
+                  </label>
                 </div>
               </div>
 
