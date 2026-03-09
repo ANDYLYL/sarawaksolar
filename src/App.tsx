@@ -1,19 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { CheckCircle, Sun, Zap, Shield, Phone, MessageCircle, ArrowRight, Menu, X, Clock, Newspaper, Send, User, Bot } from 'lucide-react';
-import { GoogleGenAI } from "@google/genai";
-
-// Initialize Gemini for the chat feature
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || "" });
+import ChatBot from './components/ChatBot';
 
 export default function App() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [isChatOpen, setIsChatOpen] = useState(false);
-  const [chatMessages, setChatMessages] = useState<{ role: 'user' | 'bot', text: string }[]>([
-    { role: 'bot', text: 'Hello! I am your Sarawak Solar assistant. How can I help you with the 2026 NEM subsidy today?' }
-  ]);
-  const [userInput, setUserInput] = useState('');
-  const [isTyping, setIsTyping] = useState(false);
-  const chatEndRef = useRef<HTMLDivElement>(null);
 
   // Countdown State
   const [timeLeft, setTimeLeft] = useState({
@@ -46,10 +36,6 @@ export default function App() {
     return () => clearInterval(timer);
   }, []);
 
-  useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [chatMessages]);
-
   const scrollToForm = () => {
     const form = document.getElementById('eligibility-form');
     if (form) {
@@ -58,70 +44,39 @@ export default function App() {
     setIsMenuOpen(false);
   };
 
-  const handleSendMessage = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!userInput.trim()) return;
-
-    const userMsg = userInput;
-    setUserInput('');
-    setChatMessages(prev => [...prev, { role: 'user', text: userMsg }]);
-    setIsTyping(true);
-
-    try {
-      const response = await ai.models.generateContent({
-        model: "gemini-1.5-flash",
-        contents: [{ role: "user", parts: [{ text: `You are a helpful solar energy consultant for SarawakSolar.com. You are helping a customer in Sarawak, Malaysia. 
-        Context:
-        - 2026 Sarawak Energy NEM Subsidy is active.
-        - Subsidies: RM8k (2-3.5kW), RM10k (3.5-6kW), RM12k (6-50kW).
-        - Benefits: 1:1 energy offset, 15-year SEB contract.
-        - Requirements: SEB Registered Contractor, SET-P compliance.
-        Answer the following question briefly and professionally: ${userMsg}` }] }],
-      });
-      setChatMessages(prev => [...prev, { role: 'bot', text: response.text || "I'm sorry, I couldn't generate a response." }]);
-    } catch (error) {
-      console.error("Chat error:", error);
-      setChatMessages(prev => [...prev, { role: 'bot', text: "I'm sorry, I'm having trouble connecting. Please try again or contact us via WhatsApp!" }]);
-    } finally {
-      setIsTyping(false);
-    }
-  };
-
   const newsItems = [
     {
       date: "February 24, 2025",
       title: "Sarawak Energy to Expand Floating Solar Projects",
       summary: "Following the success of the Batang Ai floating solar farm, Sarawak Energy is looking to replicate the model in other reservoirs to boost renewable energy capacity.",
-      image: "https://picsum.photos/seed/sarawaksolar1/400/250",
       link: "https://www.sarawakenergy.com/news-events/news-announcements"
     },
     {
       date: "January 15, 2025",
       title: "Sarawak's Net Energy Metering (NEM) Scheme Sees Record Uptake",
       summary: "Homeowners in Kuching and Miri are leading the transition to solar as the state government's RM12,000 subsidy program enters its peak phase.",
-      image: "https://picsum.photos/seed/sarawaksolar2/400/250",
       link: "https://www.thestar.com.my/news/nation/2024/05/22/sarawak-to-introduce-solar-subsidy-for-residential-homes"
     },
     {
       date: "March 1, 2025",
       title: "New Solar Panel Standards for Sarawak Residential Installations",
       summary: "The Sarawak Energy Transition Policy (SET-P) has introduced new efficiency standards for residential solar panels to ensure maximum yield for homeowners.",
-      image: "https://picsum.photos/seed/sarawaksolar3/400/250",
       link: "https://www.theborneopost.com/tag/solar-energy/"
     }
   ];
 
   // Configurator State
-  const [billAmount, setBillAmount] = useState<number>(350);
+  const [billAmount, setBillAmount] = useState<number | "">(350);
   const [selectedPhase, setSelectedPhase] = useState<1 | 3>(1);
   const [panelCount, setPanelCount] = useState(10);
   const PANEL_WATTAGE = 620; // Wp
-  const DC_AC_RATIO = 1.2;
+  const DC_AC_RATIO = 1.5;
   const SUN_HOURS_PER_DAY = 3.6; // Average for Sarawak
 
   // Sarawak Residential Tariff Calculation (Bill RM -> kWh)
-  const calculateKWhFromBill = (bill: number) => {
-    let remainingBill = bill;
+  const calculateKWhFromBill = (bill: number | "") => {
+    const billNum = typeof bill === 'string' ? 0 : bill;
+    let remainingBill = billNum;
     let kwh = 0;
 
     const tiers = [
@@ -162,16 +117,16 @@ export default function App() {
   const totalDCkWp = (panelCount * PANEL_WATTAGE) / 1000;
 
   const inverters = [
-    { id: '1p-3', name: '1-Phase 3kW', ac: 3, phase: 1 },
-    { id: '1p-5', name: '1-Phase 5kW', ac: 5, phase: 1 },
-    { id: '1p-8', name: '1-Phase 8kW', ac: 8, phase: 1 },
-    { id: '1p-10', name: '1-Phase 10kW', ac: 10, phase: 1 },
-    { id: '3p-5', name: '3-Phase 5kW', ac: 5, phase: 3 },
-    { id: '3p-10', name: '3-Phase 10kW', ac: 10, phase: 3 },
-    { id: '3p-15', name: '3-Phase 15kW', ac: 15, phase: 3 },
-    { id: '3p-20', name: '3-Phase 20kW', ac: 20, phase: 3 },
-    { id: '3p-25', name: '3-Phase 25kW', ac: 25, phase: 3 },
-    { id: '3p-30', name: '3-Phase 30kW', ac: 30, phase: 3 },
+    { id: '1p-3', name: '3kW AC / 4.5kW DC', ac: 3, maxDc: 4.5, phase: 1 },
+    { id: '1p-5', name: '5kW AC / 7.5kW DC', ac: 5, maxDc: 7.5, phase: 1 },
+    { id: '1p-8', name: '8kW AC / 12kW DC', ac: 8, maxDc: 12, phase: 1 },
+    { id: '1p-10', name: '10kW AC / 15kW DC', ac: 10, maxDc: 15, phase: 1 },
+    { id: '3p-5', name: '5kW AC / 7.5kW DC', ac: 5, maxDc: 7.5, phase: 3 },
+    { id: '3p-10', name: '10kW AC / 15kW DC', ac: 10, maxDc: 15, phase: 3 },
+    { id: '3p-15', name: '15kW AC / 22.5kW DC', ac: 15, maxDc: 22.5, phase: 3 },
+    { id: '3p-20', name: '20kW AC / 30kW DC', ac: 20, maxDc: 30, phase: 3 },
+    { id: '3p-25', name: '25kW AC / 37.5kW DC', ac: 25, maxDc: 37.5, phase: 3 },
+    { id: '3p-30', name: '30kW AC / 45kW DC', ac: 30, maxDc: 45, phase: 3 },
   ];
 
   const getInverterStatus = (ac: number) => {
@@ -444,8 +399,16 @@ export default function App() {
                     <input 
                       type="number" 
                       value={billAmount}
-                      onChange={(e) => setBillAmount(Math.max(0, parseInt(e.target.value) || 0))}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        if (val === "") {
+                          setBillAmount("");
+                        } else {
+                          setBillAmount(Math.max(0, parseInt(val) || 0));
+                        }
+                      }}
                       className="w-full pl-12 pr-4 py-3 rounded-xl border-2 border-slate-200 focus:border-emerald-900 outline-none transition-all font-bold text-emerald-900"
+                      placeholder="0"
                     />
                   </div>
                   <p className="mt-2 text-xs text-slate-500 italic">We recommend sizing to offset 75% of your total bill via 100% export (~{calculateKWhFromBill(billAmount).toFixed(0)} kWh/month)</p>
@@ -533,14 +496,14 @@ export default function App() {
                         }`}
                       >
                         <div className="text-xs font-bold text-slate-500 mb-1">{inv.phase === 1 ? '1-PHASE' : '3-PHASE'}</div>
-                        <div className="text-lg font-bold text-emerald-900">{inv.ac}kW AC</div>
+                        <div className="text-lg font-bold text-emerald-900">{inv.ac}kW AC Output</div>
                         <div className={`mt-3 inline-block px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
                           status.color === 'green' ? 'bg-green-500 text-white' : 
                           status.color === 'amber' ? 'bg-amber-500 text-white' : 'bg-emerald-500 text-white'
                         }`}>
                           {status.label}
                         </div>
-                        <div className="mt-2 text-[10px] text-slate-500">Max DC: {(inv.ac * 1.2).toFixed(1)}kW</div>
+                        <div className="mt-2 text-[10px] text-slate-500">Max DC Input: {inv.maxDc}kW</div>
                       </div>
                     );
                   })}
@@ -562,7 +525,6 @@ export default function App() {
           <div className="grid md:grid-cols-3 gap-8">
             {newsItems.map((item, index) => (
               <div key={index} className="bg-white rounded-2xl overflow-hidden shadow-md hover:shadow-xl transition-shadow border border-slate-100 flex flex-col">
-                <img src={item.image} alt={item.title} className="w-full h-48 object-cover" referrerPolicy="no-referrer" />
                 <div className="p-6 flex flex-col flex-grow">
                   <span className="text-emerald-600 text-sm font-semibold mb-2">{item.date}</span>
                   <h3 className="text-xl font-bold text-emerald-900 mb-3 leading-tight">{item.title}</h3>
@@ -692,95 +654,7 @@ export default function App() {
         </div>
       </footer>
 
-      {/* Chat Widget */}
-      <div className="fixed bottom-6 right-6 z-[60] flex flex-col items-end">
-        {isChatOpen && (
-          <div className="bg-white w-[350px] h-[500px] rounded-3xl shadow-2xl border border-slate-100 flex flex-col overflow-hidden mb-4 animate-in slide-in-from-bottom-4 duration-300">
-            {/* Chat Header */}
-            <div className="bg-emerald-900 p-4 flex justify-between items-center">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-emerald-800 flex items-center justify-center">
-                  <Bot className="h-6 w-6 text-yellow-400" />
-                </div>
-                <div>
-                  <div className="text-white font-bold text-sm">Solar Assistant</div>
-                  <div className="text-emerald-300 text-xs flex items-center gap-1">
-                    <div className="w-2 h-2 rounded-full bg-green-400"></div>
-                    Online
-                  </div>
-                </div>
-              </div>
-              <button onClick={() => setIsChatOpen(false)} className="text-emerald-300 hover:text-white">
-                <X className="h-6 w-6" />
-              </button>
-            </div>
-
-            {/* Chat Messages */}
-            <div className="flex-grow overflow-y-auto p-4 space-y-4 bg-slate-50">
-              {chatMessages.map((msg, i) => (
-                <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                  <div className={`max-w-[80%] p-3 rounded-2xl text-sm ${
-                    msg.role === 'user' 
-                    ? 'bg-emerald-900 text-white rounded-tr-none' 
-                    : 'bg-white text-slate-700 shadow-sm border border-slate-100 rounded-tl-none'
-                  }`}>
-                    {msg.text}
-                  </div>
-                </div>
-              ))}
-              {isTyping && (
-                <div className="flex justify-start">
-                  <div className="bg-white p-3 rounded-2xl shadow-sm border border-slate-100 rounded-tl-none flex gap-1">
-                    <div className="w-1.5 h-1.5 bg-slate-300 rounded-full animate-bounce"></div>
-                    <div className="w-1.5 h-1.5 bg-slate-300 rounded-full animate-bounce [animation-delay:0.2s]"></div>
-                    <div className="w-1.5 h-1.5 bg-slate-300 rounded-full animate-bounce [animation-delay:0.4s]"></div>
-                  </div>
-                </div>
-              )}
-              <div ref={chatEndRef} />
-            </div>
-
-            {/* Chat Input */}
-            <form onSubmit={handleSendMessage} className="p-4 bg-white border-t border-slate-100 flex gap-2">
-              <input 
-                type="text" 
-                value={userInput}
-                onChange={(e) => setUserInput(e.target.value)}
-                placeholder="Ask about subsidies..."
-                className="flex-grow px-4 py-2 rounded-full bg-slate-100 border-none focus:ring-2 focus:ring-emerald-500 text-sm outline-none"
-              />
-              <button type="submit" className="bg-emerald-900 text-white p-2 rounded-full hover:bg-emerald-800 transition-colors">
-                <Send className="h-5 w-5" />
-              </button>
-            </form>
-          </div>
-        )}
-
-        <div className="flex gap-4">
-          {/* WhatsApp Button */}
-          <a 
-            href="https://wa.me/60102841069" 
-            target="_blank" 
-            rel="noopener noreferrer"
-            className="bg-[#25D366] text-white p-4 rounded-full shadow-2xl hover:scale-110 transition-transform flex items-center justify-center group"
-            aria-label="Chat on WhatsApp"
-          >
-            <MessageCircle className="h-8 w-8" />
-          </a>
-
-          {/* Chat Toggle Button */}
-          <button 
-            onClick={() => setIsChatOpen(!isChatOpen)}
-            className="bg-emerald-900 text-white p-4 rounded-full shadow-2xl hover:scale-110 transition-transform flex items-center justify-center relative"
-            aria-label="Open Chat"
-          >
-            {isChatOpen ? <X className="h-8 w-8" /> : <Bot className="h-8 w-8" />}
-            {!isChatOpen && (
-              <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 border-2 border-white rounded-full"></span>
-            )}
-          </button>
-        </div>
-      </div>
+      <ChatBot />
     </div>
   );
 }
