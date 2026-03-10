@@ -46,23 +46,28 @@ export default function App() {
     setIsMenuOpen(false);
   };
 
+  const [selectedNews, setSelectedNews] = useState<typeof newsItems[0] | null>(null);
+
   const newsItems = [
     {
       date: "February 24, 2025",
       title: "Sarawak Energy to Expand Floating Solar Projects",
       summary: "Following the success of the Batang Ai floating solar farm, Sarawak Energy is looking to replicate the model in other reservoirs to boost renewable energy capacity.",
+      fullContent: "Sarawak Energy Berhad (SEB) is accelerating its renewable energy ambitions by expanding floating solar projects across the state's hydroelectric reservoirs. Following the successful commissioning of the 50MW floating solar farm at the Batang Ai reservoir, the utility company is now conducting feasibility studies for similar installations at the Bakun and Murum dams.\n\nFloating solar technology is particularly advantageous for Sarawak as it utilizes existing water surfaces, reduces evaporation, and can be integrated directly into the existing power grid infrastructure of the hydroelectric plants. This hybrid approach—combining hydro and solar—ensures a more stable and reliable renewable energy supply for the state's growing industrial and residential needs.\n\nBy leveraging its vast water bodies, Sarawak aims to become a regional leader in renewable energy, supporting both local demand and potential energy exports to neighboring regions.",
       link: "https://www.sarawakenergy.com/news-events/news-announcements"
     },
     {
       date: "January 15, 2025",
       title: "Sarawak's Net Energy Metering (NEM) Scheme Sees Record Uptake",
       summary: "Homeowners in Kuching and Miri are leading the transition to solar as the state government's RM12,000 subsidy program enters its peak phase.",
+      fullContent: "The residential Net Energy Metering (NEM) scheme in Sarawak has reached a significant milestone, with record numbers of homeowners in Kuching, Miri, and Bintulu applying for solar installations in the first quarter of 2025. This surge is largely attributed to the Sarawak government's RM12,000 solar subsidy program, which significantly lowers the initial investment cost for families.\n\nUnder the NEM scheme, homeowners can generate their own clean energy and export any surplus back to the Sarawak Energy grid, receiving credits that offset their monthly electricity bills. This 'sell-back' mechanism effectively turns rooftops into mini power plants, providing long-term financial savings while contributing to environmental sustainability.\n\nIndustry experts predict that the current quota for 2025 may be fully utilized sooner than expected, prompting calls for an extension of the subsidy program to support the state's transition to a low-carbon economy.",
       link: "https://www.thestar.com.my/news/nation/2024/05/22/sarawak-to-introduce-solar-subsidy-for-residential-homes"
     },
     {
       date: "March 1, 2025",
       title: "New Solar Panel Standards for Sarawak Residential Installations",
       summary: "The Sarawak Energy Transition Policy (SET-P) has introduced new efficiency standards for residential solar panels to ensure maximum yield for homeowners.",
+      fullContent: "The Ministry of Utility and Telecommunication Sarawak, in collaboration with Sarawak Energy, has introduced updated technical standards for residential solar panel installations under the Sarawak Energy Transition Policy (SET-P). These new guidelines focus on enhancing the safety, efficiency, and durability of solar systems in Sarawak's tropical climate.\n\nKey updates include mandatory Tier-1 panel certification, specific mounting requirements to withstand high wind speeds during monsoon seasons, and the integration of smart inverters capable of grid stabilization. The policy also emphasizes the importance of using SEB-registered contractors to ensure that all installations meet the rigorous safety criteria required for grid connection.\n\nThese standards are designed to protect consumers' investments and ensure that residential solar systems contribute effectively to the state's long-term energy security goals.",
       link: "https://www.theborneopost.com/tag/solar-energy/"
     }
   ];
@@ -332,18 +337,75 @@ export default function App() {
                   <span className="text-emerald-600 text-sm font-semibold mb-2">{item.date}</span>
                   <h3 className="text-xl font-bold text-emerald-900 mb-3 leading-tight">{item.title}</h3>
                   <p className="text-slate-600 text-sm mb-6 flex-grow">{item.summary}</p>
-                  <a 
-                    href={item.link} 
-                    target="_blank" 
-                    rel="noopener noreferrer" 
-                    className="text-emerald-700 font-bold text-sm flex items-center gap-2 hover:gap-3 transition-all"
+                  <button 
+                    onClick={() => setSelectedNews(item)}
+                    className="text-emerald-700 font-bold text-sm flex items-center gap-2 hover:gap-3 transition-all w-fit"
                   >
                     Read More <ArrowRight className="h-4 w-4" />
-                  </a>
+                  </button>
                 </div>
               </div>
             ))}
           </div>
+
+          {/* News Modal */}
+          {selectedNews && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+              <div 
+                className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col animate-in zoom-in-95 duration-200"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50">
+                  <div className="flex items-center gap-2 text-emerald-700">
+                    <Newspaper className="h-5 w-5" />
+                    <span className="text-sm font-bold uppercase tracking-wider">News Update</span>
+                  </div>
+                  <button 
+                    onClick={() => setSelectedNews(null)}
+                    className="p-2 rounded-full hover:bg-slate-200 transition-colors text-slate-500"
+                  >
+                    <X className="h-6 w-6" />
+                  </button>
+                </div>
+                
+                <div className="p-8 overflow-y-auto">
+                  <span className="text-emerald-600 text-sm font-semibold mb-2 block">{selectedNews.date}</span>
+                  <h2 className="text-2xl md:text-3xl font-bold text-emerald-900 mb-6 leading-tight">
+                    {selectedNews.title}
+                  </h2>
+                  <div className="prose prose-slate max-w-none">
+                    {selectedNews.fullContent.split('\n\n').map((paragraph, i) => (
+                      <p key={i} className="text-slate-600 leading-relaxed mb-4">
+                        {paragraph}
+                      </p>
+                    ))}
+                  </div>
+                  
+                  <div className="mt-10 pt-6 border-t border-slate-100">
+                    <p className="text-xs text-slate-400 mb-3 uppercase font-bold tracking-widest">Original Source</p>
+                    <a 
+                      href={selectedNews.link}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-emerald-700 text-sm font-medium hover:underline break-all flex items-center gap-2"
+                    >
+                      {selectedNews.link} <ArrowRight className="h-3 w-3" />
+                    </a>
+                  </div>
+                </div>
+                
+                <div className="p-6 bg-slate-50 border-t border-slate-100 flex justify-end">
+                  <button 
+                    onClick={() => setSelectedNews(null)}
+                    className="px-6 py-2 rounded-xl bg-emerald-900 text-white font-bold hover:bg-emerald-800 transition-colors"
+                  >
+                    Close
+                  </button>
+                </div>
+              </div>
+              <div className="absolute inset-0 -z-10" onClick={() => setSelectedNews(null)}></div>
+            </div>
+          )}
         </div>
       </section>
 
