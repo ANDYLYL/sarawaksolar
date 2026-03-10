@@ -50,11 +50,11 @@ const inverterLibrary: Inverter[] = [
 ];
 
 export default function SolarConfigurator() {
-  const [panelCount, setPanelCount] = useState<number>(10);
+  const [panelCount, setPanelCount] = useState<string>('10');
   const [phaseFilter, setPhaseFilter] = useState<'all' | 1 | 3>('all');
   const PANEL_WATTAGE = 620;
 
-  const pdc = useMemo(() => panelCount * PANEL_WATTAGE, [panelCount]);
+  const pdc = useMemo(() => (parseInt(panelCount) || 0) * PANEL_WATTAGE, [panelCount]);
 
   const filteredInverters = useMemo(() => {
     return inverterLibrary
@@ -90,10 +90,26 @@ export default function SolarConfigurator() {
                 <input
                   id="panel-count"
                   type="number"
-                  min="1"
+                  min="0"
                   max="100"
                   value={panelCount}
-                  onChange={(e) => setPanelCount(Math.max(1, parseInt(e.target.value) || 0))}
+                  onChange={(e) => {
+                    let val = e.target.value;
+                    // Strip leading zeros if there's a following digit
+                    if (val.length > 1 && val.startsWith('0')) {
+                      val = val.replace(/^0+/, '');
+                    }
+                    // Only allow numbers and max 100
+                    if (val === '' || (/^\d+$/.test(val) && parseInt(val) <= 100)) {
+                      setPanelCount(val);
+                    }
+                  }}
+                  onFocus={(e) => {
+                    if (panelCount === '0') setPanelCount('');
+                  }}
+                  onBlur={(e) => {
+                    if (panelCount === '') setPanelCount('0');
+                  }}
                   className="w-32 px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-emerald-500 outline-none font-bold text-lg"
                 />
                 <span className="text-slate-400 font-medium">× 620Wp</span>
