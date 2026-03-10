@@ -51,24 +51,22 @@ const inverterLibrary: Inverter[] = [
 
 export default function SolarConfigurator() {
   const [panelCount, setPanelCount] = useState<number>(10);
+  const [phaseFilter, setPhaseFilter] = useState<'all' | 1 | 3>('all');
   const PANEL_WATTAGE = 620;
 
   const pdc = useMemo(() => panelCount * PANEL_WATTAGE, [panelCount]);
 
   const filteredInverters = useMemo(() => {
-    const isHighPower = pdc > 15800;
-    
-    // Sort logic: Prioritize phase based on power, then by maxDc
     return inverterLibrary
       .filter(inv => {
-        if (isHighPower) {
-          return inv.phase === 3;
-        } else {
-          return inv.phase === 1;
-        }
+        const isCompatible = pdc <= inv.maxDc;
+        const isUnderpowered = pdc < inv.ratedAc * 0.5; // DC is less than 50% of AC rating
+        const phaseMatch = phaseFilter === 'all' || inv.phase === phaseFilter;
+        
+        return phaseMatch && isCompatible && !isUnderpowered;
       })
       .sort((a, b) => a.maxDc - b.maxDc);
-  }, [pdc]);
+  }, [pdc, phaseFilter]);
 
   return (
     <div className="bg-white rounded-3xl shadow-xl border border-slate-100 overflow-hidden">
@@ -117,85 +115,95 @@ export default function SolarConfigurator() {
         </div>
 
         {/* Selection Panel */}
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
+        <div className="space-y-6">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <h3 className="font-bold text-slate-800 flex items-center gap-2">
-              Compatible Inverters
+              Recommended Inverters
               <span className="bg-emerald-100 text-emerald-700 text-xs px-2 py-0.5 rounded-full">
-                {filteredInverters.filter(inv => pdc <= inv.maxDc).length} Found
+                {filteredInverters.length} Found
               </span>
             </h3>
-            <div className="text-xs text-slate-400 flex items-center gap-1">
-              <Info className="h-3 w-3" />
-              Based on {pdc > 15800 ? 'Three' : 'Single'} Phase Priority
+            
+            <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200">
+              {(['all', 1, 3] as const).map((p) => (
+                <button
+                  key={p}
+                  onClick={() => setPhaseFilter(p)}
+                  className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                    phaseFilter === p 
+                      ? 'bg-white text-emerald-700 shadow-sm' 
+                      : 'text-slate-500 hover:text-slate-700'
+                  }`}
+                >
+                  {p === 'all' ? 'All Phases' : `${p} Phase`}
+                </button>
+              ))}
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {filteredInverters.map((inv, idx) => {
-              const isCompatible = pdc <= inv.maxDc;
-              const loadPercentage = Math.min(100, (pdc / inv.maxDc) * 100);
-              
-              return (
-                <div 
-                  key={`${inv.model}-${idx}`}
-                  className={`relative p-5 rounded-2xl border transition-all duration-300 ${
-                    isCompatible 
-                      ? 'bg-white border-slate-200 hover:border-emerald-500 hover:shadow-lg' 
-                      : 'bg-slate-50 border-slate-100 opacity-60 grayscale'
-                  }`}
-                >
-                  <div className="flex justify-between items-start mb-4">
-                    <div>
-                      <div className="text-lg font-black text-slate-900">{inv.model}</div>
-                      <div className="text-xs font-bold text-slate-400 uppercase tracking-widest">
-                        {inv.phase} Phase Inverter
+          {filteredInverters.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {filteredInverters.map((inv, idx) => {
+                const loadPercentage = Math.min(100, (pdc / inv.maxDc) * 100);
+                const acLoadPercentage = (pdc / inv.ratedAc) * 100;
+                
+                return (
+                  <div 
+                    key={`${inv.model}-${idx}`}
+                    className="relative p-5 rounded-2xl border bg-white border-slate-200 hover:border-emerald-500 hover:shadow-lg transition-all duration-300"
+                  >
+                    <div className="flex justify-between items-start mb-4">
+                      <div>
+                        <div className="text-lg font-black text-slate-900">{inv.model}</div>
+                        <div className="text-xs font-bold text-slate-400 uppercase tracking-widest">
+                          {inv.phase} Phase Inverter
+                        </div>
+                      </div>
+                      <CheckCircle2 className="h-5 w-5 text-emerald-500" />
+                    </div>
+
+                    <div className="space-y-3">
+                      <div className="flex justify-between text-xs font-bold">
+                        <span className="text-slate-500 uppercase">Load Capacity</span>
+                        <span className="text-emerald-600">
+                          {loadPercentage.toFixed(1)}%
+                        </span>
+                      </div>
+                      
+                      <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden">
+                        <div 
+                          className={`h-full transition-all duration-500 ${
+                            loadPercentage > 90 ? 'bg-orange-400' : 'bg-emerald-500'
+                          }`}
+                          style={{ width: `${loadPercentage}%` }}
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2 pt-2 border-t border-slate-50">
+                        <div className="text-[10px] text-slate-400 font-bold uppercase">Max DC Input</div>
+                        <div className="text-[10px] text-slate-400 font-bold uppercase text-right">AC Rating</div>
+                        <div className="text-xs font-bold text-slate-700">{inv.maxDc}W</div>
+                        <div className="text-xs font-bold text-slate-700 text-right">{inv.ratedAc}W</div>
+                      </div>
+
+                      <div className="flex items-center justify-between pt-2">
+                        <span className="text-[10px] text-slate-400 font-bold uppercase">Efficiency</span>
+                        <span className="text-xs font-bold text-emerald-600">{(inv.efficiency * 100).toFixed(1)}%</span>
                       </div>
                     </div>
-                    {isCompatible ? (
-                      <CheckCircle2 className="h-5 w-5 text-emerald-500" />
-                    ) : (
-                      <AlertCircle className="h-5 w-5 text-red-400" />
-                    )}
                   </div>
-
-                  <div className="space-y-3">
-                    <div className="flex justify-between text-xs font-bold">
-                      <span className="text-slate-500 uppercase">Load Capacity</span>
-                      <span className={isCompatible ? 'text-emerald-600' : 'text-red-500'}>
-                        {loadPercentage.toFixed(1)}%
-                      </span>
-                    </div>
-                    
-                    <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden">
-                      <div 
-                        className={`h-full transition-all duration-500 ${
-                          !isCompatible ? 'bg-red-400' : 
-                          loadPercentage > 90 ? 'bg-orange-400' : 'bg-emerald-500'
-                        }`}
-                        style={{ width: `${loadPercentage}%` }}
-                      />
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-2 pt-2 border-t border-slate-50">
-                      <div className="text-[10px] text-slate-400 font-bold uppercase">Max DC Input</div>
-                      <div className="text-[10px] text-slate-400 font-bold uppercase text-right">Efficiency</div>
-                      <div className="text-xs font-bold text-slate-700">{inv.maxDc}W</div>
-                      <div className="text-xs font-bold text-slate-700 text-right">{(inv.efficiency * 100).toFixed(1)}%</div>
-                    </div>
-                  </div>
-
-                  {!isCompatible && (
-                    <div className="absolute inset-0 flex items-center justify-center bg-white/40 backdrop-blur-[1px] rounded-2xl">
-                      <span className="bg-red-100 text-red-700 text-[10px] font-black px-2 py-1 rounded uppercase tracking-tighter">
-                        Incompatible (DC Overload)
-                      </span>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="bg-slate-50 border border-dashed border-slate-200 rounded-2xl p-12 text-center">
+              <AlertCircle className="h-12 w-12 text-slate-300 mx-auto mb-4" />
+              <h4 className="text-lg font-bold text-slate-600 mb-2">No Matching Inverters</h4>
+              <p className="text-slate-400 text-sm max-w-xs mx-auto">
+                Try adjusting your panel count or changing the phase filter to find compatible options.
+              </p>
+            </div>
+          )}
         </div>
       </div>
     </div>
