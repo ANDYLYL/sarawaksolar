@@ -335,8 +335,9 @@ footer .wrap{display:flex;justify-content:space-between;gap:20px;flex-wrap:wrap}
             <p class="hint">Divide your bill amount by the kWh used, both shown on your bill.</p>
           </div>
           <div class="field">
-            <label for="cpk">Installed cost per kWp</label>
-            <div class="num"><span>RM</span><input id="cpk" type="number" step="50" min="2000" max="8000" value="3800"></div>
+            <label for="cpk">Price per extra panel above 16</label>
+            <div class="num"><span>RM</span><input id="cpk" type="number" step="50" min="500" max="3000" value="1000"></div>
+            <p class="hint">Packages with 630W panels: 4 panels RM10,500, 8 RM15,000, 12 RM19,000, 16 RM23,000. Sizes in between are priced pro rata.</p>
           </div>
           <div class="field">
             <label for="yield">Monthly output per kWp</label>
@@ -346,7 +347,7 @@ footer .wrap{display:flex;justify-content:space-between;gap:20px;flex-wrap:wrap}
       </div>
       <div class="results" aria-live="polite">
         <div class="size">
-          <div><b id="rPanels">0</b>620W panels</div>
+          <div><b id="rPanels">0</b>630W panels</div>
           <div><b id="rKwp">0</b>kWp system</div>
           <div><b id="rCost">RM0</b>estimated cost</div>
         </div>
@@ -356,6 +357,7 @@ footer .wrap{display:flex;justify-content:space-between;gap:20px;flex-wrap:wrap}
           <tr class="hi"><th>Announced 2027 subsidy (estimate: 50%, max RM15,000)</th><td id="r2027">RM0</td></tr>
           <tr class="hi"><th>You pay with 2027 subsidy</th><td id="r2027net">RM0</td></tr>
           <tr><th>Estimated bill saving per month</th><td id="rSave">RM0</td></tr>
+          <tr><th>Payback with 2026 subsidy</th><td id="rPay26">0 yrs</td></tr>
           <tr><th>Payback with 2027 subsidy</th><td id="rPay">0 yrs</td></tr>
         </table>
         <div class="mini" aria-hidden="true"><i id="rMini" style="width:50%"></i></div>
@@ -400,10 +402,10 @@ footer .wrap{display:flex;justify-content:space-between;gap:20px;flex-wrap:wrap}
 <section id="inverters">
   <div class="wrap">
     <h2>For the technically minded: match an inverter</h2>
-    <p class="lede">Enter your panel count to see which inverters fit a 620Wp array, filtered by single or three phase supply.</p>
+    <p class="lede">Enter your panel count to see which inverters fit a 630Wp array, filtered by single or three phase supply.</p>
     <div class="inv-head">
       <div class="inv-in">
-        <div><label for="panels">Number of 620Wp panels</label><input id="panels" type="number" min="1" max="100" value="10"></div>
+        <div><label for="panels">Number of 630Wp panels</label><input id="panels" type="number" min="1" max="100" value="10"></div>
         <p style="padding-bottom:10px"><b id="dcOut">6.20 kWp</b> DC</p>
       </div>
       <div class="seg" role="group" aria-label="Supply phase">
@@ -528,7 +530,15 @@ footer .wrap{display:flex;justify-content:space-between;gap:20px;flex-wrap:wrap}
   } else { split.classList.add("go"); }
 
   /* Calculator */
-  var PANEL = 0.62, DCAC = 1.2;
+  var PANEL = 0.63, DCAC = 1.2;
+  var PKG = [[4,10500],[8,15000],[12,19000],[16,23000]];
+  function pkgCost(n, extra){
+    if (n >= 16) return 23000 + (n - 16) * extra;
+    for (var i = 0; i < PKG.length - 1; i++) {
+      var a = PKG[i], b = PKG[i+1];
+      if (n <= b[0]) return a[1] + (b[1] - a[1]) * (n - a[0]) / (b[0] - a[0]);
+    }
+  }
   function nem2026(kwac){
     if (kwac < 2) return 0;
     if (kwac <= 3.5) return 8000;
@@ -539,19 +549,20 @@ footer .wrap{display:flex;justify-content:space-between;gap:20px;flex-wrap:wrap}
   function calc(){
     var bill = Math.max(0, parseFloat($("bill").value) || 0);
     var tariff = Math.max(0.05, parseFloat($("tariff").value) || 0.3);
-    var cpk = Math.max(500, parseFloat($("cpk").value) || 3800);
+    var extra = Math.max(500, parseFloat($("cpk").value) || 1000);
     var yld = Math.max(30, parseFloat($("yield").value) || 110);
     var kwhMonth = bill / tariff;
     var panels = Math.max(4, Math.round(kwhMonth / yld / PANEL));
     var kwp = Math.min(60, panels * PANEL);
     panels = Math.round(kwp / PANEL);
-    var cost = kwp * cpk;
+    var cost = pkgCost(panels, extra);
     var kwac = kwp / DCAC;
     var s26 = Math.min(nem2026(kwac), cost);
     var s27 = Math.min(cost * 0.5, 15000);
     var gen = kwp * yld;
     var save = Math.min(gen, kwhMonth) * tariff;
     var payback = save > 0 ? (cost - s27) / (save * 12) : 0;
+    var payback26 = save > 0 ? (cost - s26) / (save * 12) : 0;
     $("rPanels").textContent = panels;
     $("rKwp").textContent = kwp.toFixed(1);
     $("rCost").textContent = fmt(cost);
@@ -561,6 +572,7 @@ footer .wrap{display:flex;justify-content:space-between;gap:20px;flex-wrap:wrap}
     $("r2027net").textContent = fmt(cost - s27);
     $("rSave").textContent = fmt(save);
     $("rPay").textContent = payback.toFixed(1) + " yrs";
+    $("rPay26").textContent = payback26.toFixed(1) + " yrs";
     $("rMini").style.width = (cost ? (s27 / cost * 100) : 0) + "%";
     $("calcCta").dataset.summary = kwp.toFixed(1) + " kWp, bill RM" + Math.round(bill);
   }
@@ -586,7 +598,7 @@ footer .wrap{display:flex;justify-content:space-between;gap:20px;flex-wrap:wrap}
   var phase = "all";
   function renderInv(){
     var n = Math.max(0, Math.min(100, parseInt($("panels").value, 10) || 0));
-    var pdc = n * 620;
+    var pdc = n * 630;
     $("dcOut").textContent = (pdc / 1000).toFixed(2) + " kWp";
     var list = INV.filter(function(v){
       return (phase === "all" || String(v[1]) === phase) && pdc <= v[2] && pdc >= v[3] * 0.5;
