@@ -327,6 +327,14 @@ footer .wrap{display:flex;justify-content:space-between;gap:20px;flex-wrap:wrap}
           <div class="num"><span>RM</span><input id="bill" type="number" inputmode="numeric" min="50" max="5000" value="250"></div>
           <input id="billRange" type="range" min="50" max="2000" step="10" value="250" aria-label="Monthly bill slider">
         </div>
+        <div class="field">
+          <label>Electricity supply</label>
+          <div class="seg" id="calcPhase" role="group" aria-label="Electricity supply phase">
+            <button type="button" data-cph="1" aria-pressed="true">Single phase</button>
+            <button type="button" data-cph="3" aria-pressed="false">Three phase</button>
+          </div>
+          <p class="hint" id="phaseHint">Single phase systems go up to 16 panels. Bigger systems need three phase supply.</p>
+        </div>
         <details class="assume">
           <summary>Change the assumptions</summary>
           <div class="field" style="margin-top:14px">
@@ -335,9 +343,9 @@ footer .wrap{display:flex;justify-content:space-between;gap:20px;flex-wrap:wrap}
             <p class="hint">Divide your bill amount by the kWh used, both shown on your bill.</p>
           </div>
           <div class="field">
-            <label for="cpk">Price per extra panel above 16</label>
+            <label for="cpk">Price per extra panel above 36 (three phase)</label>
             <div class="num"><span>RM</span><input id="cpk" type="number" step="50" min="500" max="3000" value="1000"></div>
-            <p class="hint">Packages with 630W panels: 4 panels RM10,500, 8 RM15,000, 12 RM19,000, 16 RM23,000. Sizes in between are priced pro rata.</p>
+            <p class="hint">Prices follow our SRP cash price list for 630W panel systems. Odd panel counts are priced between the listed packages.</p>
           </div>
           <div class="field">
             <label for="yield">Monthly output per kWp</label>
@@ -349,8 +357,9 @@ footer .wrap{display:flex;justify-content:space-between;gap:20px;flex-wrap:wrap}
         <div class="size">
           <div><b id="rPanels">0</b>630W panels</div>
           <div><b id="rKwp">0</b>kWp system</div>
-          <div><b id="rCost">RM0</b>estimated cost</div>
+          <div><b id="rCost">RM0</b>SRP cash price</div>
         </div>
+        <p class="note" id="rInv" style="margin-top:0"></p>
         <table class="compare">
           <tr><th>2026 NEM subsidy (in force now)</th><td id="r2026">RM0</td></tr>
           <tr><th>You pay with 2026 subsidy</th><td id="r2026net">RM0</td></tr>
@@ -408,7 +417,7 @@ footer .wrap{display:flex;justify-content:space-between;gap:20px;flex-wrap:wrap}
         <div><label for="panels">Number of 630Wp panels</label><input id="panels" type="number" min="1" max="100" value="10"></div>
         <p style="padding-bottom:10px"><b id="dcOut">6.20 kWp</b> DC</p>
       </div>
-      <div class="seg" role="group" aria-label="Supply phase">
+      <div class="seg" id="invPhaseSeg" role="group" aria-label="Supply phase">
         <button type="button" data-ph="all" aria-pressed="true">All</button>
         <button type="button" data-ph="1" aria-pressed="false">Single phase</button>
         <button type="button" data-ph="3" aria-pressed="false">Three phase</button>
@@ -531,19 +540,35 @@ footer .wrap{display:flex;justify-content:space-between;gap:20px;flex-wrap:wrap}
 
   /* Calculator */
   var PANEL = 0.63, DCAC = 1.2;
-  var PKG = [[4,10500],[8,15000],[12,19000],[16,23000]];
-  function pkgCost(n, extra){
-    if (n >= 16) return 23000 + (n - 16) * extra;
-    for (var i = 0; i < PKG.length - 1; i++) {
-      var a = PKG[i], b = PKG[i+1];
-      if (n <= b[0]) return a[1] + (b[1] - a[1]) * (n - a[0]) / (b[0] - a[0]);
+  /* SRP cash price list, 630W panels: [panels, inverter kWac, inverter type, price RM].
+     Where two inverter options share a panel count, the one with the lower price
+     after the 2026 NEM subsidy is listed. */
+  var SRP = {
+    "1": [[4,2.2,"1 microinverter",10488],[8,4.4,"2 microinverters",15988],[10,6.2,"string inverter",20888],
+          [12,6.2,"string inverter",22888],[14,8,"string inverter",25888],[16,8,"string inverter",27888]],
+    "3": [[6,4,"string inverter",14888],[8,4,"string inverter",17888],[10,6.2,"string inverter",21888],
+          [12,6.2,"string inverter",23888],[14,8,"string inverter",26888],[16,8,"string inverter",28888],
+          [18,10,"string inverter",31888],[20,12,"string inverter",34888],[22,12,"string inverter",36888],
+          [24,12,"string inverter",38888],[26,15,"string inverter",41888],[28,15,"string inverter",43888],
+          [30,17,"string inverter",46888],[32,20,"string inverter",49888],[34,20,"string inverter",51888],
+          [36,20,"string inverter",53888]]
+  };
+  var calcPh = "1";
+  /* Price for n panels: exact row, linear between rows (inverter of the next row up),
+     extended above the last row at the extra-panel price. */
+  function srpQuote(ph, n, extra){
+    var t = SRP[ph], last = t[t.length - 1];
+    if (n <= t[0][0]) return {price: t[0][3], kwac: t[0][1], inv: t[0][2]};
+    if (n > last[0]) return {price: last[3] + (n - last[0]) * extra, kwac: Math.max(last[1], n * PANEL / DCAC), inv: "string inverter"};
+    for (var i = 1; i < t.length; i++) {
+      var a = t[i-1], b = t[i];
+      if (n <= b[0]) return {price: a[3] + (b[3] - a[3]) * (n - a[0]) / (b[0] - a[0]), kwac: b[1], inv: b[2]};
     }
   }
   function nem2026(kwac){
     if (kwac < 2) return 0;
     if (kwac <= 3.5) return 8000;
     if (kwac <= 6) return 10000;
-    if (kwac <= 50) return 12000;
     return 12000;
   }
   function calc(){
@@ -552,11 +577,14 @@ footer .wrap{display:flex;justify-content:space-between;gap:20px;flex-wrap:wrap}
     var extra = Math.max(500, parseFloat($("cpk").value) || 1000);
     var yld = Math.max(30, parseFloat($("yield").value) || 110);
     var kwhMonth = bill / tariff;
-    var panels = Math.max(4, Math.round(kwhMonth / yld / PANEL));
-    var kwp = Math.min(60, panels * PANEL);
-    panels = Math.round(kwp / PANEL);
-    var cost = pkgCost(panels, extra);
-    var kwac = kwp / DCAC;
+    var ph = calcPh, t = SRP[ph];
+    var panels = Math.max(t[0][0], Math.round(kwhMonth / yld / PANEL));
+    var capped = false;
+    if (ph === "1" && panels > 16) { panels = 16; capped = true; }
+    panels = Math.min(panels, Math.floor(60 / PANEL));
+    var kwp = panels * PANEL;
+    var q = srpQuote(ph, panels, extra);
+    var cost = q.price, kwac = q.kwac;
     var s26 = Math.min(nem2026(kwac), cost);
     var s27 = Math.min(cost * 0.5, 15000);
     var gen = kwp * yld;
@@ -564,8 +592,12 @@ footer .wrap{display:flex;justify-content:space-between;gap:20px;flex-wrap:wrap}
     var payback = save > 0 ? (cost - s27) / (save * 12) : 0;
     var payback26 = save > 0 ? (cost - s26) / (save * 12) : 0;
     $("rPanels").textContent = panels;
-    $("rKwp").textContent = kwp.toFixed(1);
+    $("rKwp").textContent = kwp.toFixed(2);
     $("rCost").textContent = fmt(cost);
+    $("rInv").textContent = (ph === "1" ? "Single" : "Three") + " phase, " + kwac.toFixed(1) + " kWac " + q.inv + ".";
+    $("phaseHint").textContent = capped
+      ? "Your bill needs more than 16 panels. Single phase is capped at 16, so this covers part of your bill. Switch to three phase for a full-size system."
+      : "Single phase systems go up to 16 panels. Bigger systems need three phase supply.";
     $("r2026").textContent = fmt(s26);
     $("r2026net").textContent = fmt(cost - s26);
     $("r2027").textContent = fmt(s27);
@@ -574,8 +606,15 @@ footer .wrap{display:flex;justify-content:space-between;gap:20px;flex-wrap:wrap}
     $("rPay").textContent = payback.toFixed(1) + " yrs";
     $("rPay26").textContent = payback26.toFixed(1) + " yrs";
     $("rMini").style.width = (cost ? (s27 / cost * 100) : 0) + "%";
-    $("calcCta").dataset.summary = kwp.toFixed(1) + " kWp, bill RM" + Math.round(bill);
+    $("calcCta").dataset.summary = kwp.toFixed(2) + " kWp " + (ph === "1" ? "single" : "three") + " phase, bill RM" + Math.round(bill);
   }
+  document.querySelectorAll("#calcPhase button").forEach(function(b){
+    b.addEventListener("click", function(){
+      calcPh = b.dataset.cph;
+      document.querySelectorAll("#calcPhase button").forEach(function(x){ x.setAttribute("aria-pressed", x === b ? "true" : "false"); });
+      calc();
+    });
+  });
   $("bill").addEventListener("input", function(){ $("billRange").value = this.value; calc(); });
   $("billRange").addEventListener("input", function(){ $("bill").value = this.value; calc(); });
   ["tariff","cpk","yield"].forEach(function(id){ $(id).addEventListener("input", calc); });
@@ -616,10 +655,10 @@ footer .wrap{display:flex;justify-content:space-between;gap:20px;flex-wrap:wrap}
     }).join("");
   }
   $("panels").addEventListener("input", renderInv);
-  document.querySelectorAll(".seg button").forEach(function(b){
+  document.querySelectorAll("#invPhaseSeg button").forEach(function(b){
     b.addEventListener("click", function(){
       phase = b.dataset.ph;
-      document.querySelectorAll(".seg button").forEach(function(x){ x.setAttribute("aria-pressed", x === b ? "true" : "false"); });
+      document.querySelectorAll("#invPhaseSeg button").forEach(function(x){ x.setAttribute("aria-pressed", x === b ? "true" : "false"); });
       renderInv();
     });
   });
